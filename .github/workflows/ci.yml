@@ -121,21 +121,41 @@ jobs:
             ls -la "$PGLIB_DIR/" || echo "Directory not found"
           fi
 
-      - name: Start PostgreSQL and test extension
+      - name: Start PostgreSQL 17 and test extension
         run: |
-          # Start PostgreSQL service
-          sudo systemctl start postgresql
-          sudo -u postgres createdb testdb
+          # Stop any existing PostgreSQL service
+          sudo systemctl stop postgresql || true
           
-          # Test extension installation
-          sudo -u postgres psql -d testdb -c "CREATE EXTENSION pgexporter_ext;" || {
+          # Check which PostgreSQL versions are installed
+          echo "=== Available PostgreSQL versions ==="
+          ls /usr/lib/postgresql/ || echo "No PostgreSQL versions found"
+          
+          # Initialize PostgreSQL 17 data directory
+          sudo -u postgres /usr/lib/postgresql/17/bin/initdb -D /var/lib/postgresql/17/main --auth-local=peer --auth-host=md5
+          
+          # Start PostgreSQL 17 specifically
+          sudo -u postgres /usr/lib/postgresql/17/bin/pg_ctl -D /var/lib/postgresql/17/main -l /var/lib/postgresql/17/main/postgresql.log start
+          
+          # Wait for PostgreSQL to start
+          sleep 5
+          
+          # Create test database using PostgreSQL 17 binaries
+          sudo -u postgres /usr/lib/postgresql/17/bin/createdb testdb
+          
+          # Test extension installation using PostgreSQL 17 binaries
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "CREATE EXTENSION pgexporter_ext;" || {
             echo "Extension creation failed, checking logs..."
-            sudo journalctl -u postgresql --no-pager -n 50
+            echo "=== PostgreSQL 17 log ==="
+            sudo cat /var/lib/postgresql/17/main/postgresql.log || echo "Log file not found"
+            echo "=== Extension files ==="
+            ls -la /usr/share/postgresql/17/extension/pgexporter_ext*
+            echo "=== Library files ==="
+            ls -la /usr/lib/postgresql/17/lib/pgexporter_ext*
             exit 1
           }
           
-          sudo -u postgres psql -d testdb -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'pgexporter_ext';"
-          echo "✓ Extension loaded and tested successfully"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'pgexporter_ext';"
+          echo "✓ Extension loaded and tested successfully with PostgreSQL 17"
 
       - name: Upload Build Artifacts
         if: always()
