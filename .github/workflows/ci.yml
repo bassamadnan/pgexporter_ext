@@ -46,11 +46,19 @@ jobs:
         sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
         sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
         sudo apt update
-        sudo apt install -y postgresql-17 postgresql-server-dev-17 postgresql-contrib-17
+        sudo apt install -y postgresql-17 postgresql-server-dev-17 postgresql-contrib-17 postgresql-common
         
-    - name: Set PostgreSQL Path
+    - name: Set PostgreSQL Path and Verify Installation
       run: |
         echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
+        echo "PostgreSQL version:"
+        /usr/lib/postgresql/17/bin/pg_config --version
+        echo "Include directory:"
+        /usr/lib/postgresql/17/bin/pg_config --includedir
+        echo "Server include directory:"
+        /usr/lib/postgresql/17/bin/pg_config --includedir-server
+        echo "Checking if server/fmgr.h exists:"
+        ls -la $(/usr/lib/postgresql/17/bin/pg_config --includedir-server)/server/fmgr.h || echo "File not found"
         
     - name: Update alternatives
       run: sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60
