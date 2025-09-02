@@ -7,69 +7,190 @@ on:
   pull_request:
     branches:
     - main
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-ubuntu:
     runs-on: ubuntu-latest
-    
+
+    strategy:
+      matrix:
+        compiler: [gcc]
+        build_type: [Debug, Release]
+      fail-fast: false
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install dependencies
-      run: |
-        sudo apt update -y
-        sudo apt install -y \
-          git \
-          gcc-9 \
-          cmake \
-          make \
-          libev-dev \
-          openssl \
-          libssl-dev \
-          systemd \
-          libsystemd-dev \
-          libyaml-dev \
-          libatomic1 \
-          zlib1g \
-          zlib1g-dev \
-          libzstd-dev \
-          liblz4-dev \
-          bzip2 \
-          libbz2-dev \
-          pkg-config \
-          curl
-      
-    - name: Install PostgreSQL
-      run: |
-        sudo apt install -y curl ca-certificates
-        sudo install -d /usr/share/postgresql-common/pgdg
-        sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
-        sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-        sudo apt update
-        sudo apt install -y postgresql-17 postgresql-server-dev-17 postgresql-contrib-17 postgresql-common
-        
-    - name: Set PostgreSQL Path and Verify Installation
-      run: |
-        echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
-        echo "PostgreSQL version:"
-        /usr/lib/postgresql/17/bin/pg_config --version
-        echo "Include directory:"
-        /usr/lib/postgresql/17/bin/pg_config --includedir
-        echo "Server include directory:"
-        /usr/lib/postgresql/17/bin/pg_config --includedir-server
-        echo "Checking if server/fmgr.h exists:"
-        ls -la $(/usr/lib/postgresql/17/bin/pg_config --includedir-server)/server/fmgr.h || echo "File not found"
-        
-    - name: Update alternatives
-      run: sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60
-      
-    - name: mkdir
-      run: mkdir build
-      
-    - name: cmake
-      run: cmake -DCMAKE_BUILD_TYPE=Release ..
-      working-directory: build/
-      
-    - name: make
-      run: make
-      working-directory: build/
+      - uses: actions/checkout@v4
+
+      - name: Cache APT packages
+        uses: actions/cache@v4.2.4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-cache-ubuntu-${{ runner.os }}-${{ hashFiles('**/.github/workflows/*.yml') }}
+          restore-keys: |
+            apt-cache-ubuntu-${{ runner.os }}-
+
+      - name: Cache PostgreSQL installation
+        id: cache-postgresql
+        uses: actions/cache@v4.2.4
+        with:
+          path: |
+            /usr/lib/postgresql/17
+            /usr/share/postgresql/17
+            /usr/share/postgresql-common
+            /etc/apt/sources.list.d/pgdg.list
+          key: postgresql-17-${{ runner.os }}-v2
+          restore-keys: |
+            postgresql-17-${{ runner.os }}-
+
+      - name: Install base dependencies
+        run: |
+          sudo apt update && sudo apt install -y \
+            git \
+            gcc \
+            cmake \
+            make \
+            curl \
+            ca-certificates \
+            pkg-config \
+            zlib1g \
+            zlib1g-dev \
+            libzstd-dev \
+            liblz4-dev \
+            bzip2 \
+            libbz2-dev
+
+      - name: Install PostgreSQL with server development headers
+        if: steps.cache-postgresql.outputs.cache-hit != 'true'
+        run: |
+          # Add official PostgreSQL repository
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt update
+          
+          # Install PostgreSQL with all required development packages
+          sudo apt install -y \
+            postgresql-17 \
+            postgresql-server-dev-17 \
+            postgresql-client-17 \
+            postgresql-contrib-17 \
+            postgresql-common \
+            libpq-dev
+
+      - name: Setup PostgreSQL repository (cache hit)
+        if: steps.cache-postgresql.outputs.cache-hit == 'true'
+        run: |
+          # Re-add repository configuration when using cache
+          sudo apt update
+          if [ ! -f /etc/apt/sources.list.d/pgdg.list ]; then
+            sudo install -d /usr/share/postgresql-common/pgdg
+            sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+            sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+            sudo apt update
+          fi
+          
+          # Install any missing packages (in case cache is partial)
+          sudo apt install -y \
+            postgresql-17 \
+            postgresql-server-dev-17 \
+            postgresql-client-17 \
+            postgresql-contrib-17 \
+            postgresql-common \
+            libpq-dev
+
+      - name: Set PostgreSQL environment and verify installation
+        run: |
+          # Add PostgreSQL binaries to PATH
+          echo "/usr/lib/postgresql/17/bin" >> $GITHUB_PATH
+          
+          # Verify installation
+          /usr/lib/postgresql/17/bin/pg_config --version
+          echo "Server include directory: $(/usr/lib/postgresql/17/bin/pg_config --includedir-server)"
+          echo "Library directory: $(/usr/lib/postgresql/17/bin/pg_config --libdir)"
+          
+          # Verify critical header files exist
+          SERVER_INCLUDE_DIR=$(/usr/lib/postgresql/17/bin/pg_config --includedir-server)
+          if [ -f "$SERVER_INCLUDE_DIR/fmgr.h" ]; then
+            echo "✓ fmgr.h found at $SERVER_INCLUDE_DIR/fmgr.h"
+          else
+            echo "✗ fmgr.h not found"
+            echo "Contents of server include directory:"
+            ls -la "$SERVER_INCLUDE_DIR/" || echo "Directory not found"
+            exit 1
+          fi
+
+      - name: Cache CMake build
+        uses: actions/cache@v4.2.4
+        with:
+          path: |
+            build/
+            !build/log/
+          key: cmake-build-${{ matrix.compiler }}-${{ matrix.build_type }}-${{ hashFiles('CMakeLists.txt', 'src/**', 'cmake/**') }}
+          restore-keys: |
+            cmake-build-${{ matrix.compiler }}-${{ matrix.build_type }}-
+            cmake-build-${{ matrix.compiler }}-
+
+      - name: Build Project
+        run: |
+          mkdir build
+          cd build
+          
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            export CC=/usr/bin/gcc
+          else
+            export CC=/usr/bin/clang
+          fi
+          
+          # Configure with CMAKE
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
+          
+          # Build with verbose output to help debug any issues
+          make VERBOSE=1
+
+      - name: Install Extension
+        run: |
+          cd build
+          sudo make install
+          
+          # Verify installation
+          PGLIB_DIR=$(/usr/lib/postgresql/17/bin/pg_config --pkglibdir)
+          if [ -f "$PGLIB_DIR/pgexporter_ext.so" ]; then
+            echo "✓ Extension installed successfully at $PGLIB_DIR/pgexporter_ext.so"
+          else
+            echo "✗ Extension installation failed"
+            echo "Contents of PostgreSQL lib directory:"
+            ls -la "$PGLIB_DIR/" || echo "Directory not found"
+            exit 1
+          fi
+
+      - name: Start PostgreSQL for testing
+        run: |
+          # Initialize and start PostgreSQL
+          sudo -u postgres /usr/lib/postgresql/17/bin/initdb -D /var/lib/postgresql/17/main
+          sudo -u postgres /usr/lib/postgresql/17/bin/pg_ctl -D /var/lib/postgresql/17/main -l /var/lib/postgresql/17/main/logfile start
+          
+          # Wait for PostgreSQL to start
+          sleep 5
+          
+          # Create test database and user
+          sudo -u postgres /usr/lib/postgresql/17/bin/createdb test
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -c "CREATE USER testuser WITH SUPERUSER;"
+
+      - name: Test Extension Loading
+        run: |
+          # Test that the extension can be loaded
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d test -c "CREATE EXTENSION pgexporter_ext;"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d test -c "SELECT * FROM pg_extension WHERE extname = 'pgexporter_ext';"
+          
+          echo "✓ Extension loaded successfully"
+
+      - name: Upload Build Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.compiler }}-${{ matrix.build_type }}
+          path: |
+            build/
+            !build/CMakeFiles/
+          retention-days: 7
