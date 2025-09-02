@@ -46,11 +46,11 @@
 
 /* PostgreSQL */
 #include "postgres.h"
-#include "server/fmgr.h"
-#include "server/funcapi.h"
+#include "fmgr.h"
+#include "funcapi.h"
 #include "miscadmin.h"
 #include "nodes/execnodes.h"
-#include "server/utils/tuplestore.h"
+#include "utils/tuplestore.h"
 
 #include "utils/builtins.h"
 #include "utils/guc.h"

@@ -66,60 +66,26 @@ jobs:
             libpq-dev \
             libpq5
 
-      - name: Set PostgreSQL environment and debug paths
+      - name: Set PostgreSQL environment and verify installation
         run: |
           # Add PostgreSQL binaries to PATH
           echo "/usr/lib/postgresql/17/bin" >> $GITHUB_PATH
           
-          # Debug: Show all PostgreSQL-related directories
-          echo "=== PostgreSQL Installation Debug ==="
+          # Verify installation
+          echo "=== PostgreSQL Installation Verification ==="
           /usr/lib/postgresql/17/bin/pg_config --version
           echo "Include directory: $(/usr/lib/postgresql/17/bin/pg_config --includedir)"
           echo "Server include directory: $(/usr/lib/postgresql/17/bin/pg_config --includedir-server)"
           echo "Library directory: $(/usr/lib/postgresql/17/bin/pg_config --libdir)"
           echo "Package library directory: $(/usr/lib/postgresql/17/bin/pg_config --pkglibdir)"
           
-          # Check for header files in various locations
-          echo "=== Header File Locations ==="
-          find /usr/include -name "fmgr.h" 2>/dev/null || echo "fmgr.h not found in /usr/include"
-          find /usr/include -name "postgres.h" 2>/dev/null || echo "postgres.h not found in /usr/include"
-          
-          echo "Contents of /usr/include/postgresql/:"
-          ls -la /usr/include/postgresql/ 2>/dev/null || echo "Directory not found"
-          
-          echo "Contents of server include directory:"
+          # Verify critical header files exist
           SERVER_INC=$(/usr/lib/postgresql/17/bin/pg_config --includedir-server)
-          ls -la "$SERVER_INC" 2>/dev/null || echo "Server include directory not found: $SERVER_INC"
-          
-          # Check if the problematic header exists
           if [ -f "$SERVER_INC/fmgr.h" ]; then
             echo "✓ fmgr.h found at: $SERVER_INC/fmgr.h"
-          elif [ -f "/usr/include/postgresql/17/server/fmgr.h" ]; then
-            echo "✓ fmgr.h found at: /usr/include/postgresql/17/server/fmgr.h"
-          elif [ -f "/usr/include/postgresql/server/fmgr.h" ]; then
-            echo "✓ fmgr.h found at: /usr/include/postgresql/server/fmgr.h"
           else
-            echo "✗ fmgr.h not found in expected locations"
-          fi
-
-      - name: Fix include paths in source code (if needed)
-        run: |
-          # Check what include is actually being used
-          echo "=== Checking source file includes ==="
-          grep -n "#include.*fmgr.h" src/pgexporter_ext/lib.c || echo "No fmgr.h include found"
-          grep -n "#include.*postgres.h" src/pgexporter_ext/lib.c || echo "No postgres.h include found"
-          
-          # If the source is using server/fmgr.h but the file is at the root level, we may need to fix it
-          SERVER_INC=$(/usr/lib/postgresql/17/bin/pg_config --includedir-server)
-          if [ -f "$SERVER_INC/fmgr.h" ] && [ ! -f "$SERVER_INC/server/fmgr.h" ]; then
-            echo "fmgr.h is at root of server include directory, not in server/ subdirectory"
-            echo "Source code may need to use #include \"fmgr.h\" instead of #include \"server/fmgr.h\""
-            
-            # Temporarily fix the include for CI (you should fix this in the source)
-            if grep -q '#include "server/fmgr.h"' src/pgexporter_ext/lib.c; then
-              echo "Temporarily fixing include path for CI build..."
-              sed -i 's|#include "server/fmgr.h"|#include "fmgr.h"|g' src/pgexporter_ext/lib.c
-            fi
+            echo "✗ fmgr.h not found at expected location: $SERVER_INC/fmgr.h"
+            exit 1
           fi
 
       - name: Build Project
