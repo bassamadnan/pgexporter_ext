@@ -163,18 +163,18 @@ jobs:
           sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'pgexporter_ext';"
           echo "✓ Extension loaded and tested successfully with PostgreSQL 17"
 
-      - name: Upload Build Artifacts and Logs
+      - name: PostgreSQL collect logs
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-${{ matrix.compiler }}-${{ matrix.build_type }}
-          path: |
-            build/
-            !build/CMakeFiles/
-            /var/lib/postgresql/17/main/postgresql.log
-          retention-days: 7
+        run: |
+          sudo chmod 644 /var/lib/postgresql/17/main/postgresql.log || true
+          sudo chmod 644 /var/lib/postgresql/17/main/pg_hba.conf || true
+          sudo chmod 644 /var/lib/postgresql/17/main/postgresql.conf || true
+          
+          # Show log content for immediate debugging
+          echo "=== PostgreSQL 17 Full Log ==="
+          sudo cat /var/lib/postgresql/17/main/postgresql.log || echo "Log file not found"
 
-      - name: Upload PostgreSQL Logs (separate artifact)
+      - name: Upload PostgreSQL Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
