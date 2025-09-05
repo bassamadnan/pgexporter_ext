@@ -115,6 +115,12 @@ jobs:
           if [ -f "$PGLIB_DIR/pgexporter_ext.so" ]; then
             echo "✓ Extension installed successfully at $PGLIB_DIR/pgexporter_ext.so"
             ls -la "$PGLIB_DIR"/pgexporter_ext*
+            
+            # Debug: Check what functions are exported in the shared library
+            echo "=== Exported functions in the shared library ==="
+            nm -D "$PGLIB_DIR/pgexporter_ext.so" | grep -E "(pgexporter|T )" | head -20
+            echo "=== All exported symbols ==="
+            objdump -T "$PGLIB_DIR/pgexporter_ext.so" | grep -v "UND" | head -20
           else
             echo "✗ Extension installation failed"
             echo "Contents of PostgreSQL lib directory:"
@@ -157,7 +163,7 @@ jobs:
           sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'pgexporter_ext';"
           echo "✓ Extension loaded and tested successfully with PostgreSQL 17"
 
-      - name: Upload Build Artifacts
+      - name: Upload Build Artifacts and Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -165,4 +171,16 @@ jobs:
           path: |
             build/
             !build/CMakeFiles/
+            /var/lib/postgresql/17/main/postgresql.log
+          retention-days: 7
+
+      - name: Upload PostgreSQL Logs (separate artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgresql-logs-${{ matrix.compiler }}-${{ matrix.build_type }}
+          path: |
+            /var/lib/postgresql/17/main/postgresql.log
+            /var/lib/postgresql/17/main/pg_hba.conf
+            /var/lib/postgresql/17/main/postgresql.conf
           retention-days: 7
