@@ -1,19 +1,19 @@
 CREATE FUNCTION pgexporter_information_ext() RETURNS text
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_information'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_information_ext FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pgexporter_information_ext TO pg_monitor;
 
 CREATE FUNCTION pgexporter_version_ext() RETURNS text
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_version'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_version_ext FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pgexporter_version_ext TO pg_monitor;
 
 CREATE FUNCTION pgexporter_is_supported(IN fname text) RETURNS bool
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_is_supported'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_is_supported FROM PUBLIC;
@@ -21,7 +21,7 @@ GRANT EXECUTE ON FUNCTION pgexporter_is_supported TO pg_monitor;
 
 CREATE FUNCTION pgexporter_get_functions(OUT fname text, OUT has_input bool, OUT description text, OUT ftype text)
 RETURNS SETOF record
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_get_functions'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_get_functions FROM PUBLIC;
@@ -36,7 +36,7 @@ CREATE FUNCTION pgexporter_os_info(OUT name text,
                                    OUT uptime_seconds int
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_os_info'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_os_info FROM PUBLIC;
@@ -52,7 +52,7 @@ CREATE FUNCTION pgexporter_cpu_info(OUT vendor text,
                                     OUT l3cache_size int
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_cpu_info'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_cpu_info FROM PUBLIC;
@@ -67,7 +67,7 @@ CREATE FUNCTION pgexporter_memory_info(OUT total_memory int8,
                                        OUT cache_total int8
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_memory_info'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_memory_info FROM PUBLIC;
@@ -78,7 +78,7 @@ CREATE FUNCTION pgexporter_load_avg(OUT load_avg_one_minute float4,
                                     OUT load_avg_ten_minutes float4
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_load_avg'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_load_avg FROM PUBLIC;
@@ -97,7 +97,7 @@ CREATE FUNCTION pgexporter_network_info(OUT interface_name text,
                                         OUT link_speed_mbps int
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pgexporter_ext_network_info'
 LANGUAGE C STRICT;
 
 REVOKE ALL ON FUNCTION pgexporter_network_info FROM PUBLIC;
