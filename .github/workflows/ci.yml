@@ -22,13 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache APT packages
-        uses: actions/cache@v4.2.4
-        with:
-          path: /var/cache/apt/archives
-          key: apt-cache-ubuntu-${{ runner.os }}-${{ hashFiles('**/.github/workflows/*.yml') }}
-          restore-keys: |
-            apt-cache-ubuntu-${{ runner.os }}-
+      # - name: Cache APT packages
+      #   uses: actions/cache@v4.2.4
+      #   with:
+      #     path: /var/cache/apt/archives
+      #     key: apt-cache-ubuntu-${{ runner.os }}-${{ hashFiles('**/.github/workflows/*.yml') }}
+      #     restore-keys: |
+      #       apt-cache-ubuntu-${{ runner.os }}-
 
       - name: Install base dependencies
         run: |
