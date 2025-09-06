@@ -204,18 +204,34 @@ jobs:
           # Copy log files to a temporary location with proper permissions
           mkdir -p /tmp/postgresql-logs
           
-          # Copy files with proper permissions
-          sudo cp /var/lib/postgresql/17/main/postgresql.log /tmp/postgresql-logs/ || echo "postgresql.log not found"
-          sudo cp /var/lib/postgresql/17/main/pg_hba.conf /tmp/postgresql-logs/ || echo "pg_hba.conf not found"
-          sudo cp /var/lib/postgresql/17/main/postgresql.conf /tmp/postgresql-logs/ || echo "postgresql.conf not found"
+          # Copy files and change ownership in one step
+          if [ -f /var/lib/postgresql/17/main/postgresql.log ]; then
+            sudo cp /var/lib/postgresql/17/main/postgresql.log /tmp/postgresql-logs/
+            sudo chown $USER:$USER /tmp/postgresql-logs/postgresql.log
+            chmod 644 /tmp/postgresql-logs/postgresql.log
+          else
+            echo "postgresql.log not found"
+          fi
           
-          # Change ownership to runner
-          sudo chown -R $USER:$USER /tmp/postgresql-logs/ || true
-          chmod -R 644 /tmp/postgresql-logs/ || true
+          if [ -f /var/lib/postgresql/17/main/pg_hba.conf ]; then
+            sudo cp /var/lib/postgresql/17/main/pg_hba.conf /tmp/postgresql-logs/
+            sudo chown $USER:$USER /tmp/postgresql-logs/pg_hba.conf
+            chmod 644 /tmp/postgresql-logs/pg_hba.conf
+          else
+            echo "pg_hba.conf not found"
+          fi
+          
+          if [ -f /var/lib/postgresql/17/main/postgresql.conf ]; then
+            sudo cp /var/lib/postgresql/17/main/postgresql.conf /tmp/postgresql-logs/
+            sudo chown $USER:$USER /tmp/postgresql-logs/postgresql.conf
+            chmod 644 /tmp/postgresql-logs/postgresql.conf
+          else
+            echo "postgresql.conf not found"
+          fi
           
           # Show log content for immediate debugging
           echo "=== PostgreSQL 17 Full Log ==="
-          cat /tmp/postgresql-logs/postgresql.log || echo "Log file not found"
+          cat /tmp/postgresql-logs/postgresql.log 2>/dev/null || echo "Log file not found"
 
       - name: Upload PostgreSQL Logs
         if: always()
