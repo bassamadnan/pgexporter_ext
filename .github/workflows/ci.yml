@@ -201,60 +201,19 @@ jobs:
       - name: PostgreSQL collect logs
         if: always()
         run: |
-          # Copy log files to a temporary location with proper permissions
           mkdir -p /tmp/postgresql-logs
           
-          # Find where PostgreSQL files actually are
-          echo "=== Searching for PostgreSQL files ==="
-          sudo find /var/lib/postgresql -name "postgresql.log" -type f 2>/dev/null || echo "No postgresql.log found"
-          sudo find /var/lib/postgresql -name "pg_hba.conf" -type f 2>/dev/null || echo "No pg_hba.conf found"
-          sudo find /var/lib/postgresql -name "postgresql.conf" -type f 2>/dev/null || echo "No postgresql.conf found"
+          # Make PostgreSQL files readable and copy them
+          sudo chmod 644 /var/lib/postgresql/17/main/postgresql.log
+          sudo chmod 644 /var/lib/postgresql/17/main/pg_hba.conf  
+          sudo chmod 644 /var/lib/postgresql/17/main/postgresql.conf
           
-          echo "=== PostgreSQL data directory contents ==="
-          sudo ls -la /var/lib/postgresql/17/main/ 2>/dev/null || echo "Main data directory not found"
+          cp /var/lib/postgresql/17/main/postgresql.log /tmp/postgresql-logs/
+          cp /var/lib/postgresql/17/main/pg_hba.conf /tmp/postgresql-logs/
+          cp /var/lib/postgresql/17/main/postgresql.conf /tmp/postgresql-logs/
           
-          echo "=== Alternative log locations ==="
-          sudo find /var/log -name "*postgres*" -type f 2>/dev/null || echo "No logs in /var/log"
-          sudo find /tmp -name "*postgres*" -type f 2>/dev/null || echo "No logs in /tmp"
-          
-          # Try to copy files from multiple possible locations
-          for log_path in "/var/lib/postgresql/17/main/postgresql.log" "/var/log/postgresql/postgresql-17-main.log" "/tmp/postgresql.log"; do
-            if [ -f "$log_path" ]; then
-              echo "Found log at: $log_path"
-              sudo cp "$log_path" /tmp/postgresql-logs/
-              sudo chown $USER:$USER /tmp/postgresql-logs/postgresql.log
-              chmod 644 /tmp/postgresql-logs/postgresql.log
-              break
-            fi
-          done
-          
-          for conf_path in "/var/lib/postgresql/17/main/pg_hba.conf" "/etc/postgresql/17/main/pg_hba.conf"; do
-            if [ -f "$conf_path" ]; then
-              echo "Found pg_hba.conf at: $conf_path"
-              sudo cp "$conf_path" /tmp/postgresql-logs/
-              sudo chown $USER:$USER /tmp/postgresql-logs/pg_hba.conf
-              chmod 644 /tmp/postgresql-logs/pg_hba.conf
-              break
-            fi
-          done
-          
-          for conf_path in "/var/lib/postgresql/17/main/postgresql.conf" "/etc/postgresql/17/main/postgresql.conf"; do
-            if [ -f "$conf_path" ]; then
-              echo "Found postgresql.conf at: $conf_path"
-              sudo cp "$conf_path" /tmp/postgresql-logs/
-              sudo chown $USER:$USER /tmp/postgresql-logs/postgresql.conf
-              chmod 644 /tmp/postgresql-logs/postgresql.conf
-              break
-            fi
-          done
-          
-          # Show what we managed to collect
-          echo "=== Collected files ==="
-          ls -la /tmp/postgresql-logs/ || echo "No files collected"
-          
-          # Show log content for immediate debugging
-          echo "=== PostgreSQL 17 Full Log ==="
-          cat /tmp/postgresql-logs/postgresql.log 2>/dev/null || echo "Log file not found"
+          echo "=== PostgreSQL 17 Log ==="
+          cat /tmp/postgresql-logs/postgresql.log
 
       - name: Upload PostgreSQL Logs
         if: always()
