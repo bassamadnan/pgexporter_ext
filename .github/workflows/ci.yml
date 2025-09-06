@@ -163,6 +163,36 @@ jobs:
           sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'pgexporter_ext';"
           echo "✓ Extension loaded and tested successfully with PostgreSQL 17"
 
+      - name: Test Extension Functions
+        run: |
+          echo "=== Testing Extension Functions ==="
+          
+          # Test basic functions
+          echo "Testing pgexporter_ext_version():"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_version();" || echo "✗ version function failed"
+          
+          echo "Testing pgexporter_ext_information():"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_information();" || echo "✗ information function failed"
+          
+          echo "Testing OS info function:"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT * FROM pgexporter_ext_os_info();" || echo "✗ os_info function failed"
+          
+          echo "Testing memory info function:"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT * FROM pgexporter_ext_memory_info();" || echo "✗ memory_info function failed"
+          
+          echo "Testing disk space functions:"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_used_space('/tmp');" || echo "✗ used_space function failed"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_free_space('/tmp');" || echo "✗ free_space function failed"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_total_space('/tmp');" || echo "✗ total_space function failed"
+          
+          echo "Testing available functions list:"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT fname, description FROM pgexporter_ext_get_functions();" || echo "✗ get_functions failed"
+          
+          echo "Testing log functions:"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_log_info();" || echo "✗ log_info function failed"
+          
+          echo "✓ All extension functions tested"
+
       - name: PostgreSQL collect logs
         if: always()
         run: |
