@@ -181,36 +181,46 @@ jobs:
           sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT * FROM pgexporter_ext_memory_info();" || echo "✗ memory_info function failed"
           
           echo "Testing disk space functions:"
-          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_used_space('/tmp');" || echo "✗ used_space function failed"
-          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_free_space('/tmp');" || echo "✗ free_space function failed"
-          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_total_space('/tmp');" || echo "✗ total_space function failed"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_used_space('/tmp');" || echo "✗ used_space function failed"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_free_space('/tmp');" || echo "✗ free_space function failed"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_total_space('/tmp');" || echo "✗ total_space function failed"
           
           echo "Testing available functions list:"
           sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT fname, description FROM pgexporter_ext_get_functions();" || echo "✗ get_functions failed"
           
-          echo "Testing log functions:"
-          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_log_info();" || echo "✗ log_info function failed"
+          echo "Testing log functions (requires log directory setup):"
+          # Create a log directory for testing
+          sudo -u postgres mkdir -p /var/lib/postgresql/17/main/log
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "ALTER SYSTEM SET log_directory = '/var/lib/postgresql/17/main/log';"
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pg_reload_conf();"
+          sleep 2
+          sudo -u postgres /usr/lib/postgresql/17/bin/psql -d testdb -c "SELECT pgexporter_ext_log_info();" || echo "✗ log_info function failed (log directory may be empty)"
           
           echo "✓ All extension functions tested"
 
       - name: PostgreSQL collect logs
         if: always()
         run: |
-          sudo chmod 644 /var/lib/postgresql/17/main/postgresql.log || true
-          sudo chmod 644 /var/lib/postgresql/17/main/pg_hba.conf || true
-          sudo chmod 644 /var/lib/postgresql/17/main/postgresql.conf || true
+          # Copy log files to a temporary location with proper permissions
+          mkdir -p /tmp/postgresql-logs
+          
+          # Copy files with proper permissions
+          sudo cp /var/lib/postgresql/17/main/postgresql.log /tmp/postgresql-logs/ || echo "postgresql.log not found"
+          sudo cp /var/lib/postgresql/17/main/pg_hba.conf /tmp/postgresql-logs/ || echo "pg_hba.conf not found"
+          sudo cp /var/lib/postgresql/17/main/postgresql.conf /tmp/postgresql-logs/ || echo "postgresql.conf not found"
+          
+          # Change ownership to runner
+          sudo chown -R $USER:$USER /tmp/postgresql-logs/ || true
+          chmod -R 644 /tmp/postgresql-logs/ || true
           
           # Show log content for immediate debugging
           echo "=== PostgreSQL 17 Full Log ==="
-          sudo cat /var/lib/postgresql/17/main/postgresql.log || echo "Log file not found"
+          cat /tmp/postgresql-logs/postgresql.log || echo "Log file not found"
 
       - name: Upload PostgreSQL Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: postgresql-logs-${{ matrix.compiler }}-${{ matrix.build_type }}
-          path: |
-            /var/lib/postgresql/17/main/postgresql.log
-            /var/lib/postgresql/17/main/pg_hba.conf
-            /var/lib/postgresql/17/main/postgresql.conf
+          path: /tmp/postgresql-logs/
           retention-days: 7
